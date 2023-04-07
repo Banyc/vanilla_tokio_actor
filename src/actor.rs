@@ -3,8 +3,6 @@ use derivative::Derivative;
 use duplicate::duplicate_item;
 use tokio::sync::mpsc;
 
-const CHANNEL_SIZE: usize = 8;
-
 #[duplicate_item(
      Actor        ActorState       ;
     [Actor]      [ActorState]      ;
@@ -83,11 +81,11 @@ impl<M> ActorHandle<M>
 where
     M: Send + 'static,
 {
-    pub fn new<S>(state: S) -> Self
+    pub fn new<S>(state: S, channel_buffer: usize) -> Self
     where
         S: ActorState<Message = M> + Send + 'static,
     {
-        let (sender, receiver) = mpsc::channel(CHANNEL_SIZE);
+        let (sender, receiver) = mpsc::channel(channel_buffer);
         let actor = Actor::new(receiver, state);
         tokio::spawn(run_actor(actor));
 

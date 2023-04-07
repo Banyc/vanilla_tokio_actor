@@ -2,6 +2,8 @@ use derivative::Derivative;
 use tokio::sync::oneshot;
 use vanilla_tokio_actor::{ActorHandle, ActorState};
 
+const CHANNEL_SIZE: usize = 8;
+
 #[tokio::main]
 #[allow(clippy::disallowed_names)]
 async fn main() {
@@ -62,7 +64,7 @@ pub struct FooHandle {
 impl FooHandle {
     pub fn new() -> Self {
         let state = FooState::new();
-        let handle = ActorHandle::new(state);
+        let handle = ActorHandle::new(state, CHANNEL_SIZE);
 
         Self { handle }
     }
