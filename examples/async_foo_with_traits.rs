@@ -1,5 +1,4 @@
 use async_trait::async_trait;
-use derivative::Derivative;
 use tokio::sync::oneshot;
 use vanilla_tokio_actor::{ActorHandleAsync, ActorStateAsync};
 
@@ -33,7 +32,7 @@ enum FooMessage {
 }
 
 struct FooState {
-    pub unique_id: u32,
+    unique_id: u32,
 }
 
 impl FooState {
@@ -58,8 +57,7 @@ impl ActorStateAsync for FooState {
     }
 }
 
-#[derive(Debug, Derivative)]
-#[derivative(Clone(bound = ""))]
+#[derive(Debug, Clone)]
 pub struct FooHandle {
     handle: ActorHandleAsync<FooMessage>,
 }
@@ -82,7 +80,7 @@ impl FooHandle {
             .ask(FooMessage::GetUniqueId { respond_to: send })
             .await;
 
-        recv.await.unwrap()
+        recv.await.expect("Actor is dead")
     }
 }
 

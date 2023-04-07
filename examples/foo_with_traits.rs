@@ -1,4 +1,3 @@
-use derivative::Derivative;
 use tokio::sync::oneshot;
 use vanilla_tokio_actor::{ActorHandle, ActorState};
 
@@ -32,7 +31,7 @@ enum FooMessage {
 }
 
 struct FooState {
-    pub unique_id: u32,
+    unique_id: u32,
 }
 
 impl FooState {
@@ -55,8 +54,7 @@ impl ActorState for FooState {
     }
 }
 
-#[derive(Debug, Derivative)]
-#[derivative(Clone(bound = ""))]
+#[derive(Debug, Clone)]
 pub struct FooHandle {
     handle: ActorHandle<FooMessage>,
 }
@@ -79,7 +77,7 @@ impl FooHandle {
             .ask(FooMessage::GetUniqueId { respond_to: send })
             .await;
 
-        recv.await.unwrap()
+        recv.await.expect("Actor is dead")
     }
 }
 
