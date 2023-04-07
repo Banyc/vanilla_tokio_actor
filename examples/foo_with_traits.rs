@@ -1,6 +1,6 @@
 use derivative::Derivative;
 use tokio::sync::oneshot;
-use tokio_actor::{ActorHandle, ActorState};
+use vanilla_tokio_actor::{ActorHandle, ActorState};
 
 #[tokio::main]
 #[allow(clippy::disallowed_names)]

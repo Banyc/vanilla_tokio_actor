@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use derivative::Derivative;
 use tokio::sync::oneshot;
-use tokio_actor::{ActorHandleAsync, ActorStateAsync};
+use vanilla_tokio_actor::{ActorHandleAsync, ActorStateAsync};
 
 #[tokio::main]
 #[allow(clippy::disallowed_names)]
