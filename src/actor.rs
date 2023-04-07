@@ -81,6 +81,9 @@ impl<M> ActorHandle<M>
 where
     M: Send + 'static,
 {
+    /// # Panics
+    ///
+    /// Panics if the buffer capacity is 0.
     pub fn new<S>(state: S, channel_buffer: usize) -> Self
     where
         S: ActorState<Message = M> + Send + 'static,
