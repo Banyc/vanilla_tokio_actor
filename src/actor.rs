@@ -15,6 +15,7 @@ where
 {
     receiver: mpsc::Receiver<M>,
     state: S,
+    keep_alive: mpsc::Receiver<()>,
 }
 
 #[duplicate_item(
@@ -26,8 +27,12 @@ impl<M, S> Actor<M, S>
 where
     S: ActorState<Message = M>,
 {
-    fn new(receiver: mpsc::Receiver<M>, state: S) -> Self {
-        Self { receiver, state }
+    fn new(receiver: mpsc::Receiver<M>, state: S, keep_alive: mpsc::Receiver<()>) -> Self {
+        Self {
+            receiver,
+            state,
+            keep_alive,
+        }
     }
 
     fn state_mut(&mut self) -> &mut S {
@@ -44,9 +49,19 @@ async fn run_actor<M, S>(mut actor: Actor<M, S>)
 where
     S: ActorState<Message = M>,
 {
-    while let Some(msg) = actor.receiver.recv().await {
-        let state = actor.state_mut();
-        add_await([state.handle_message(msg)]);
+    loop {
+        tokio::select! {
+            Some(msg) = actor.receiver.recv() => {
+                let state = actor.state_mut();
+                add_await([state.handle_message(msg)]);
+            }
+            opt = actor.keep_alive.recv() => {
+                match opt {
+                    Some(_) => panic!("Actor keep alive channel should never receive a message"),
+                    None => break,
+                }
+            }
+        }
     }
 }
 
@@ -69,7 +84,8 @@ pub trait ActorStateAsync {
 #[derive(Debug, Derivative)]
 #[derivative(Clone(bound = ""))]
 pub struct ActorHandle<M> {
-    sender: mpsc::Sender<M>,
+    sender: ActorHandleWeak<M>,
+    keep_alive: mpsc::Sender<()>,
 }
 
 #[duplicate_item(
@@ -89,13 +105,55 @@ where
         S: ActorState<Message = M> + Send + 'static,
     {
         let (sender, receiver) = mpsc::channel(channel_buffer);
-        let actor = Actor::new(receiver, state);
+        let (keep_alive, keep_alive_rx) = mpsc::channel(1);
+        let actor = Actor::new(receiver, state, keep_alive_rx);
         tokio::spawn(run_actor(actor));
 
-        Self { sender }
+        let sender = ActorHandleWeak { sender };
+        Self { sender, keep_alive }
     }
 
     pub async fn ask(&self, msg: M) -> Result<(), mpsc::error::SendError<M>> {
+        self.sender.ask(msg).await
+    }
+
+    pub fn downgrade(&self) -> ActorHandleWeak<M> {
+        self.sender.clone()
+    }
+}
+
+#[derive(Debug, Derivative)]
+#[derivative(Clone(bound = ""))]
+pub struct ActorHandleWeak<M> {
+    sender: mpsc::Sender<M>,
+}
+
+impl<M> ActorHandleWeak<M> {
+    pub async fn ask(&self, msg: M) -> Result<(), mpsc::error::SendError<M>> {
         self.sender.send(msg).await
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    struct EmptyState;
+
+    impl ActorState for EmptyState {
+        type Message = ();
+        fn handle_message(&mut self, _msg: Self::Message) {}
+    }
+
+    #[tokio::test]
+    async fn weak() {
+        let handle = ActorHandle::new(EmptyState, 1);
+        let weak = handle.downgrade();
+        handle.ask(()).await.unwrap();
+        weak.ask(()).await.unwrap();
+        handle.ask(()).await.unwrap();
+        weak.ask(()).await.unwrap();
+        drop(handle);
+        assert!(weak.ask(()).await.is_err());
     }
 }
